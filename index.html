@@ -1164,8 +1164,33 @@ function onStep(i) {
 }
 
 /* ---------- WAV recording ---------- */
-const wav = { on: false, loops: 0, chunks: [], len: 0, stopAt: 0, url: '' };
+const wav = { on: false, loops: 0, chunks: [], len: 0, stopAt: 0, url: '', blob: null, name: '' };
 const wavStat = $('#wavStat'), wavLink = $('#wavLink');
+// Inside the claude.ai viewer files go through its save dialog, which takes .zip but not .wav,
+// so there the WAV is handed over inside a zip. Everywhere else the link is a plain download.
+let saver = null;
+try { if (window.claude && window.claude.use) window.claude.use('downloads').then(d => { saver = d; }).catch(() => {}); } catch (e) { /* not in a viewer */ }
+const CRC = new Uint32Array(256).map((_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+function zipOne(name, bytes) {
+  let crc = 0xffffffff; for (let i = 0; i < bytes.length; i++) crc = CRC[(crc ^ bytes[i]) & 255] ^ (crc >>> 8); crc = (crc ^ 0xffffffff) >>> 0;
+  const nm = new TextEncoder().encode(name), n = bytes.length;
+  const local = new DataView(new ArrayBuffer(30)), cen = new DataView(new ArrayBuffer(46)), end = new DataView(new ArrayBuffer(22));
+  local.setUint32(0, 0x04034b50, true); local.setUint16(4, 20, true); local.setUint32(14, crc, true); local.setUint32(18, n, true); local.setUint32(22, n, true); local.setUint16(26, nm.length, true);
+  cen.setUint32(0, 0x02014b50, true); cen.setUint16(4, 20, true); cen.setUint16(6, 20, true); cen.setUint32(16, crc, true); cen.setUint32(20, n, true); cen.setUint32(24, n, true); cen.setUint16(28, nm.length, true);
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, 1, true); end.setUint16(10, 1, true); end.setUint32(12, 46 + nm.length, true); end.setUint32(16, 30 + nm.length + n, true);
+  return new Blob([local.buffer, nm, bytes, cen.buffer, nm, end.buffer], { type: 'application/zip' });
+}
+wavLink.addEventListener('click', async e => {
+  if (!saver || !wav.blob) return;
+  e.preventDefault();
+  try {
+    const bytes = new Uint8Array(await wav.blob.arrayBuffer());
+    await saver.save({ filename: wav.name.replace(/\.wav$/, '.zip'), data: zipOne(wav.name, bytes) });
+    wavStat.textContent = 'Saved as a zip with the WAV inside.';
+  } catch (err) {
+    wavStat.textContent = err && err.code === 'declined' ? 'Download cancelled.' : 'This view cannot save files. Open the app at wojtaes.github.io/tribass to download.';
+  }
+});
 function wavToggle(loops) {
   if (wav.on) { wavStop(); return; }
   initAudio(); if (!ac || !power) return;
@@ -1209,12 +1234,14 @@ function wavStop() {
   dv.setUint32(28, sr * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); str(36, 'data'); dv.setUint32(40, n * 2, true);
   for (let i = 0; i < n; i++) { const x = clamp(all[s + i], -1, 1); dv.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true); }
   if (wav.url) URL.revokeObjectURL(wav.url);
-  wav.url = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  wav.blob = new Blob([buf], { type: 'audio/wav' });
+  wav.url = URL.createObjectURL(wav.blob);
   const d = new Date(), pad = x => String(x).padStart(2, '0');
   const secs = Math.round(n / sr);
   wavLink.href = wav.url;
-  wavLink.download = `tribass-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.wav`;
-  wavLink.textContent = `Download WAV (${Math.floor(secs / 60)}:${pad(secs % 60)}, ${(buf.byteLength / 1048576).toFixed(1)} MB)`;
+  wav.name = `tribass-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.wav`;
+  wavLink.download = wav.name;
+  wavLink.textContent = `Download WAV${saver ? ' as zip' : ''} (${Math.floor(secs / 60)}:${pad(secs % 60)}, ${(buf.byteLength / 1048576).toFixed(1)} MB)`;
   wavLink.hidden = false;
   wavStat.textContent = 'Saved.';
 }
