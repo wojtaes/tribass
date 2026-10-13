@@ -3,7 +3,14 @@
 A browser version of a 3-VCO bass synth with a 16-step sequencer, laid out like the Korg volca bass.
 It is a single file with no install and no build step.
 
-**To run it:** double-click `index.html`, or open it in Chrome or Edge. (Firefox works too, but it has no MIDI support.)
+**On a PC:** double-click `index.html`, or open it in Chrome or Edge. (Firefox works too, but it has no MIDI support.)
+
+**On an iPhone or iPad:** open the GitHub Pages address (https://wojtaes.github.io/tribass/) in Safari. Tap **Turn on sound**, or any key.
+To keep it as an app, tap Share → **Add to Home Screen**. It then opens full screen and keeps working offline.
+In portrait the panel rearranges into two rows of 8 keys. Turn the phone sideways for the full panel.
+Sound plays even with the ring/silent switch set to silent. Web MIDI is not available on iOS.
+
+To turn on GitHub Pages: repo **Settings → Pages → Build and deployment**, choose *Deploy from a branch*, then `main` and `/ (root)`.
 
 ## What it does
 
@@ -26,6 +33,7 @@ It is a single file with no install and no build step.
 | `R` | Arm live recording |
 | Hold `Shift` | FUNC |
 | Mouse | Drag knobs up/down. Shift-drag for fine moves, scroll wheel to nudge, double-click to reset. |
+| Touch | Tap keys, drag knobs up/down, double-tap a knob to reset. Tap FUNC, then a key or button. |
 
 FUNC combinations follow the panel print: FUNC + key 1–3 sets the VCO group, 4–6 the LFO targets, 7 the LFO wave, 8 LFO sync,
 9/10 the VCO wave, 11 Sustain, 12 Amp EG, and 13–16 clear slides / active steps / notes / everything.
